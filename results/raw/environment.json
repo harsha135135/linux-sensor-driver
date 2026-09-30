@@ -1,0 +1,22 @@
+{
+  "date_utc": "2026-09-30T15:08:32Z",
+  "kernel": "6.8.0-134-generic",
+  "machine": "aarch64",
+  "nproc": 6,
+  "mem_total": "MemTotal:        8111964 kB",
+  "cpu_model": "Vendor ID: Apple\nBIOS Vendor ID: Apple Inc.\nModel name: -\nBIOS Model name: CPU @ 0.0GHz",
+  "virt": "apple",
+  "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "git_rev": "888dd0f",
+  "git_dirty": false,
+  "module_params": {
+    "interval_us": "1000",
+    "seed": "1",
+    "capacity": "1024",
+    "inject_init_fault": "0",
+    "max_readers": "8"
+  },
+  "clocksource": "arch_sys_counter",
+  "hz": "CONFIG_HZ=1000",
+  "preempt": "#134-Ubuntu SMP PREEMPT_DYNAMIC Fri Jun 26 18:28:11 UTC 2026"
+}

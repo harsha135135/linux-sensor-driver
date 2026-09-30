@@ -1,0 +1,25 @@
+TAP version 13
+ok 1 - killed: partial copy consumes uncopied records
+#   t_partial_copy_fault:509: r == -1 && errno == EFAULT: read into PROT_NONE returned 128 errno 0
+ok 2 - killed: FLUSH not counted
+#   t_flush_accounting:470: st.flushed >= before.queued: flushed 0 < queued-before 250
+ok 3 - killed: drop not counted
+#   t_overflow_trailing_drops:436: st.dropped >= 2ULL * cap: only 0 drops after 10 s with a full ring (queued=1024)
+ok 4 - killed: overwrite oldest instead of tail drop
+#   check_stream:148: st->end_seq - st->start_seq == st->accepted + st->dropped: interval 5003 != accepted 5003 + dropped 3979
+ok 5 - killed: O_NONBLOCK ignored
+#   t_nonblock_eagain:227: r == -1 && errno == EAGAIN: read returned 32 errno 0
+ok 6 - killed: record carries load-time seed
+#   check_stream:164: r->value == vsensor_model_value(r->seed, r->seq): seq 0 value 4666 != model 4708
+ok 7 - killed: release leaks reader count
+#   t_max_readers:710: get_stats(ctl, &st) == 0 && st.readers == 0: readers=8 after close
+ok 8 - killed: STOP does not wake blocked readers
+# test timed out (hang detected)
+ok 9 - killed: end_seq taken before pending samples
+#   check_stream:148: st->end_seq - st->start_seq == st->accepted + st->dropped: interval 399 != accepted 400 + dropped 0
+ok 10 - killed: SET_CONFIG accepts nonzero flags
+#   t_ioctl_validation:331: ioctl(ctl, VSENSOR_IOC_SET_CONFIG, &c) == -1 && errno == EINVAL: flags != 0
+ok 11 - killed: interrupted wait swallowed
+#   t_signal_interrupts_read:769: a.r == -1 && a.err == EINTR: without SA_RESTART: r=32 errno=0
+1..11
+# 11/11 mutants detected

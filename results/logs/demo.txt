@@ -1,0 +1,20 @@
+warning: the compiler differs from the one used to build the kernel
+  The kernel was built by: aarch64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  You are using:           gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+--- device and configuration
+crw-r--r-- 1 root root 235, 0 Sep 30 21:41 /dev/vsensor
+interval_us=500 seed=42 config_gen=1
+--- five samples (value is recomputed from seed and seq by vsctl)
+seq=0 t=6677278126451 value=4839 seed=42 gen=1
+seq=1 t=6677278530123 value=4752 seed=42 gen=1
+seq=2 t=6677279109404 value=4852 seed=42 gen=1
+seq=3 t=6677279568446 value=4787 seed=42 gen=1
+seq=4 t=6677280089316 value=4979 seed=42 gen=1
+reader: start_seq=0 delivered=5 dropped=0 model_mismatches=0
+--- 3 s logger run at 10 kHz with an overloaded consumer (drop policy)
+received 29989, processed 19985, app drops 10004, driver drops 0, gaps 0
+read latency p50/p99: 15.9/20.1 us
+accounting checks: {'kernel_reconcile': True, 'stream_reconcile': True, 'app_reconcile': True, 'data': True}
+--- unload refused while a reader is open
+rmmod: ERROR: Module vsensor is in use
+unloaded after close

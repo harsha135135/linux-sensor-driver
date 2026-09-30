@@ -1,0 +1,4 @@
+make -C /lib/modules/6.8.0-134-generic/build M=/Users/harshamac/developer/embedded/linux-sensor-driver/kernel C=2 CF="-D__CHECK_ENDIAN__" modules
+warning: the compiler differs from the one used to build the kernel
+  CHECK   /Users/harshamac/developer/embedded/linux-sensor-driver/kernel/vsensor.c
+total: 0 errors, 0 warnings, 0 checks, 695 lines checked
