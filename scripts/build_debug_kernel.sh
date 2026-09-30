@@ -16,7 +16,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential bc bi
 [ -d "$SRC" ] || { wget -q "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$VER.tar.xz"; tar xf "linux-$VER.tar.xz"; }
 cd "$SRC"
 cp "/boot/config-$(uname -r)" .config
-yes '' | make localmodconfig >/dev/null
+(yes '' || true) | make localmodconfig >/dev/null   # yes dies of SIGPIPE; not an error
 ./scripts/config \
 	--set-str LOCALVERSION "-vsdebug" \
 	-e PROVE_LOCKING -e DEBUG_ATOMIC_SLEEP -e DEBUG_LIST \
@@ -36,7 +36,10 @@ sudo dpkg -i linux-image-${VER}-vsdebug_*.deb linux-headers-${VER}-vsdebug_*.deb
 # One-shot boot into the debug kernel; the stock kernel remains the default.
 sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
 sudo update-grub >/dev/null 2>&1
-sudo grub-set-default 0
+# Pin the default to the running (stock) kernel by name. Entry 0 ("Ubuntu") always
+# boots the newest kernel, and 6.8.12-vsdebug sorts above 6.8.0-x.
+STOCK=$(sudo grep -oE "menuentry 'Ubuntu, with Linux $(uname -r)'" /boot/grub/grub.cfg | head -1 | cut -d"'" -f2)
+sudo grub-set-default "Advanced options for Ubuntu>${STOCK}"
 ENTRY=$(sudo grep -oE "menuentry '[^']*${VER}-vsdebug'" /boot/grub/grub.cfg | head -1 | cut -d"'" -f2)
 sudo grub-reboot "Advanced options for Ubuntu>${ENTRY}"
 echo "installed; next boot (only) will use: ${ENTRY}"

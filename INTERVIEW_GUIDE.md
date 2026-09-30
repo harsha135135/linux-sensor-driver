@@ -39,7 +39,9 @@ touches user memory. I measured what it costs: `producer_ns` is accumulated insi
 
 The table is in DESIGN.md §2. The main rule: `hrtimer_cancel` waits for the callback, which
 takes `dev->lock`, so cancelling while holding `dev->lock` would deadlock. `vs_timer_stop`
-therefore runs only under `cfg_mutex`.
+therefore runs only under `cfg_mutex`. On the lockdep debug kernel, `/proc/lockdep`
+recorded exactly these edges (`cfg_mutex → lock`, `read_mutex → lock`, `lock → wq`), with
+`lock` marked hardirq-safe, and reported nothing (RESULTS.md).
 
 **3. Why not `copy_to_user` directly from the ring under the spinlock?**
 `copy_to_user` can fault and sleep, and sleeping with a spinlock held (IRQs disabled) is a

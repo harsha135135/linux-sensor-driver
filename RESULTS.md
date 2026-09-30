@@ -125,5 +125,40 @@ anywhere from 0 to about 5× the logger's own CPU. At 137 µs the phase drifts a
 is stable. This is why CPU numbers in this project come from `getrusage` (process) and
 `producer_ns` (the timer callback), not `/proc/stat`.
 
-## Kernel debug-option run (lockdep / KASAN)
-Not yet run at the time of writing this section; see below once completed.
+## Kernel debug-option run (lockdep / KASAN / UBSAN / kmemleak)
+This was a separate run on a debug kernel, not mixed with the performance numbers above. No
+benchmark was run on it: KASAN and lockdep slow everything down.
+
+- **Kernel:** kernel.org 6.8.12 with the stock Ubuntu config trimmed by `localmodconfig`
+  (`scripts/build_debug_kernel.sh`), booted once via `grub-reboot`. `/boot/config` of the
+  booted kernel contains `CONFIG_PROVE_LOCKING=y`, `CONFIG_DEBUG_ATOMIC_SLEEP=y`,
+  `CONFIG_KASAN=y` (generic), `CONFIG_UBSAN=y`, `CONFIG_DEBUG_KMEMLEAK=y` and
+  `CONFIG_DEBUG_LIST=y`.
+  - The boot log confirms "KernelAddressSanitizer initialized (generic)" and "RCU lockdep
+    checking is enabled".
+  - `DEBUG_OBJECTS_HRTIMERS` was requested but did not survive `olddefconfig`, so hrtimer
+    object debugging was **not** active.
+- **Suite:** the full `tests/run_all.sh` passed; module rebuilt against `6.8.12-vsdebug`.
+  Log: [results/logs/run_all_debug_kernel.txt](results/logs/run_all_debug_kernel.txt). It
+  covers all unit, driver, logger (including TSan/ASan logger runs), lifetime and
+  injected-failure tests, and 50 load/unload cycles.
+- **Kernel log:** zero BUG/WARNING/lockdep/KASAN/UBSAN/might-sleep reports, both at boot and
+  after the suite.
+- **lockdep coverage:** `/proc/lockdep` shows the driver's lock classes and the dependency
+  edges DESIGN.md documents: `&d->cfg_mutex → &d->lock`, `&r->read_mutex → &d->lock`,
+  `&d->lock → &r->wq`, with `&d->lock` marked as used in hardirq context.
+  [log](results/logs/lockdep_classes_debug_kernel.txt)
+- **kmemleak** (two forced scans after the suite): one report, a 32 KiB vmalloc from
+  `arm64_efi_rt_init` by pid 1 at boot, before the module was loaded. There were no reports
+  involving vsensor. [log](results/logs/kmemleak_debug_kernel.txt)
+
+What this does and does not show: these checkers found no problem on the code paths the
+tests exercise. Lockdep validates lock orders it has observed; it cannot prove the absence of
+orders it never saw. KASAN only checks accesses that actually happen.
+
+Two script problems found and fixed while doing this:
+1. `set -o pipefail` plus `yes '' | make localmodconfig` aborted the build when `yes` got
+   SIGPIPE.
+2. `grub-set-default 0` does not pin the stock kernel, because entry 0 follows the newest
+   kernel version, and the VM booted the debug kernel a second time. The default is now pinned
+   by entry name, and a reboot confirmed the VM returns to `6.8.0-134-generic`.

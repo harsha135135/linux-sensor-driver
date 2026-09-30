@@ -1,0 +1,14 @@
+unreferenced object 0xffff8000804f0000 (size 32768):
+  comm "swapper/0", pid 1, jiffies 4294667437
+  hex dump (first 32 bytes):
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace (crc 80fc87a6):
+    [<ffffc8f8fede4e38>] kmemleak_vmalloc+0xe0/0x1d0
+    [<ffffc8f8fc6134ac>] __vmalloc_node_range+0xd84/0x1358
+    [<ffffc8f8fc61450c>] __vmalloc_node+0xa4/0x138
+    [<ffffc8f8fff3f4fc>] arm64_efi_rt_init+0x94/0x110
+    [<ffffc8f8fbc77694>] do_one_initcall+0x144/0x868
+    [<ffffc8f8fff32c60>] kernel_init_freeable+0x4a8/0x798
+    [<ffffc8f8feddbea4>] kernel_init+0x3c/0x260
+    [<ffffc8f8fbc7b030>] ret_from_fork+0x10/0x20

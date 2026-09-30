@@ -1,0 +1,60 @@
+kernel: 6.8.12-vsdebug  cpus: 6
+CONFIG_KASAN=y
+CONFIG_PROVE_LOCKING=y
+CONFIG_DEBUG_ATOMIC_SLEEP=y
+
+=== unit tests (plain, TSan, ASan+UBSan)
+unit_test: all passed
+unit_test: all passed
+unit_test: all passed
+
+=== driver functional tests
+TAP version 13
+ok 1 - record_contents
+ok 2 - nonblock_eagain
+ok 3 - blocking_read_waits
+ok 4 - read_size_rules
+ok 5 - poll_timeout_and_ready
+ok 6 - ioctl_validation
+ok 7 - config_change_seed_queued
+ok 8 - overflow_trailing_drops
+ok 9 - flush_accounting
+ok 10 - partial_copy_fault
+ok 11 - concurrent_independent_readers
+ok 12 - shared_fd_competing_threads
+ok 13 - max_readers
+ok 14 - signal_interrupts_read
+ok 15 - stop_wakes_blocked_reader
+ok 16 - child_killed_while_blocked
+1..16
+
+=== logger integration tests
+TAP version 13
+ok 1 - verify_default
+ok 2 - slow_workers_drop_policy
+ok 3 - slow_workers_block_policy
+#   discard: stop_latency_ms=1.3 process exit 4 ms after SIGINT, discarded=1377
+ok 4 - sigint_full_queue_discard
+ok 5 - sigint_drain_then_second_signal
+ok 6 - sigterm_drain_completes
+ok 7 - duration_expiry_full_queue
+ok 8 - seed_change_during_run
+ok 9 - periodic_reads_batch
+ok 10 - csv_output
+ok 11 - tsan_logger
+ok 12 - asan_ubsan_logger
+1..12
+
+=== unload after tests (no leaked references)
+
+=== module lifetime tests
+ok - 50 load/read/unload cycles
+ok - unload refused while an fd is open, allowed after close
+ok - invalid module parameters rejected without residue
+ok - injected init failures at steps 1-4 unwind completely
+ok - normal load after failures
+
+=== kernel log scan
+clean: no BUG/WARNING/lockdep/KASAN/UBSAN reports since vsensor-run-all-1790785707-2068
+
+ALL PASSED

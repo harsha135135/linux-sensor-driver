@@ -21,6 +21,8 @@ accounting and module lifetime. There is no real hardware.
   - 12 logger integration tests, including TSan and ASan/UBSan logger runs
   - load/unload lifetime tests with injected init failures
   - a mutation check showing the tests catch 11 injected driver bugs
+  - the whole suite also passes on a lockdep + KASAN + UBSAN + kmemleak debug kernel
+    (`scripts/build_debug_kernel.sh`)
 
 See [DESIGN.md](DESIGN.md) for decisions and locking, [RESULTS.md](RESULTS.md) for measured
 numbers, [LIMITATIONS.md](LIMITATIONS.md), and [INTERVIEW_GUIDE.md](INTERVIEW_GUIDE.md).

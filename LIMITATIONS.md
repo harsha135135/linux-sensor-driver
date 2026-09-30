@@ -32,8 +32,8 @@
   waiting for `read_mutex`, as opposed to waiting for data) is not exercised deterministically.
 - `compat_ioctl` from a 32-bit process was not tested; there was no 32-bit userspace in the
   guest.
-- Lockdep, KASAN and other kernel debug checks: see RESULTS.md, "Kernel debug-option run".
-  Only what is reported there was actually run.
+- Lockdep, KASAN, UBSAN and kmemleak ran on a separate 6.8.12 debug kernel (RESULTS.md).
+  Hrtimer debug objects were not enabled, and KCSAN (data-race detection) was not run.
 - The mutation check (`tests/mutation_check.py`) covers 11 injected bugs. It shows the tests
   can fail for those bug classes, not that the test suite is complete.
 

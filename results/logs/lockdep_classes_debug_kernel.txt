@@ -1,0 +1,19 @@
+tests exit=0
+00000000dfb60c73 FD:    1 BD:    1 +.+.: ksm_thread_mutex
+ -> [0000000018178a70] &psinfo->read_mutex
+0000000018178a70 FD:   50 BD:    6 +.+.: &psinfo->read_mutex
+00000000ea68d07f FD:   24 BD:    4 -.-.: &r->wq
+00000000aca026a4 FD:   25 BD:    3 -.-.: &d->lock
+ -> [00000000ea68d07f] &r->wq
+000000006044d288 FD:   26 BD:    1 +.+.: &d->cfg_mutex
+ -> [00000000aca026a4] &d->lock
+00000000f7b2dc1a FD:  171 BD:    1 +.+.: &r->read_mutex
+ -> [00000000aca026a4] &d->lock
+---
+[0000000018178a70] &psinfo->read_mutex
+[000000006044d288] &d->cfg_mutex
+[000000006eedbd9d] chrdevs_lock
+[0000000073b8ff1f] bpf_devs_lock
+[00000000dfb60c73] ksm_thread_mutex
+[00000000f7b2dc1a] &r->read_mutex
+debug splats since boot: 0
