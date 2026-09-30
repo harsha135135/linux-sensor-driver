@@ -131,6 +131,8 @@ struct app {
 	struct hist jitter;	/* |inter-sample delta - interval|, ns */
 	uint64_t stop_req_ns;
 	uint64_t stop_done_ns;
+	uint64_t open_ns;	/* just before open(): stream start */
+	uint64_t freeze_ns;	/* just before VSENSOR_IOC_STOP: stream end */
 
 	struct worker *w;
 	int fatal_errno;
@@ -339,6 +341,7 @@ static void *reader_main(void *arg)
 
 shutdown:
 	/* Freeze the stream so end_seq is fixed, then drain what is queued. */
+	a->freeze_ns = now_ns();
 	if (ioctl(a->devfd, VSENSOR_IOC_STOP))
 		die("VSENSOR_IOC_STOP");
 	finish(a, &b);
@@ -688,7 +691,7 @@ int main(int argc, char **argv)
 	struct utsname un;
 	sigset_t mask;
 	uint64_t processed = 0, value_errors = 0, interval_len, gaps_expected;
-	double wall, cpu_user, cpu_sys, sys_util = 0;
+	double wall, stream_s, cpu_user, cpu_sys, sys_util = 0;
 	int sfd, tfd = -1, signals;
 	unsigned int i;
 	bool ok_kernel, ok_stream, ok_app, ok_data, ok;
@@ -709,6 +712,7 @@ int main(int argc, char **argv)
 		die("signalfd");
 
 	configure_device(a);
+	a->open_ns = now_ns();
 	a->devfd = open(a->o.device, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
 	if (a->devfd < 0)
 		die("open device");
@@ -787,6 +791,8 @@ int main(int argc, char **argv)
 	}
 
 	wall = ts_s(s1.wall) - ts_s(s0.wall);
+	/* Rates use the stream window (open -> freeze), excluding shutdown drain. */
+	stream_s = (double)(a->freeze_ns - a->open_ns) / 1e9;
 	cpu_user = tv_s(s1.ru.ru_utime) - tv_s(s0.ru.ru_utime);
 	cpu_sys = tv_s(s1.ru.ru_stime) - tv_s(s0.ru.ru_stime);
 	if (s1.sys_total > s0.sys_total)
@@ -830,8 +836,10 @@ int main(int argc, char **argv)
 		(unsigned long long)((uint64_t)a->st_end.start_seq), (unsigned long long)((uint64_t)a->st_end.end_seq), (unsigned long long)((uint64_t)a->st_end.accepted), (unsigned long long)((uint64_t)a->st_end.delivered),
 		(unsigned long long)((uint64_t)a->st_end.dropped), (unsigned long long)((uint64_t)a->st_end.flushed), a->st_end.queued,
 		(unsigned long long)((uint64_t)a->st_end.timer_overruns), (unsigned long long)((uint64_t)(a->st_end.timer_overruns - a->st_start.timer_overruns)));
-	fprintf(jf, "  \"requested_rate_hz\": %.1f,\n  \"achieved_rate_hz\": %.1f,\n",
-		1e6 / a->cfg.interval_us, wall > 0 ? (double)interval_len / wall : 0.0);
+	fprintf(jf, "  \"stream_s\": %.6f,\n  \"requested_rate_hz\": %.1f,\n"
+		    "  \"achieved_rate_hz\": %.1f,\n",
+		stream_s, 1e6 / a->cfg.interval_us,
+		stream_s > 0 ? (double)interval_len / stream_s : 0.0);
 	fprintf(jf, "  \"received\": %llu,\n  \"received_rate_hz\": %.1f,\n  \"reads\": %llu"
 		    ",\n  \"processed\": %llu,\n  \"app_dropped\": %llu"
 		    ",\n  \"shutdown_discarded\": %llu,\n  \"driver_dropped\": %llu"
