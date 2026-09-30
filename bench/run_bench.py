@@ -6,7 +6,8 @@ interleaved so slow drift in the VM affects every configuration equally):
 
   rate     requested sample rate 1 kHz .. 100 kHz, batch 64, no consumer load:
            achieved rate, timer overruns, jitter, producer->read() latency.
-  batch    20 kHz, read batch 1 vs 64: syscall count, CPU, latency.
+  batch    20 kHz: readiness-driven reads (batch limit 1, 64) vs timer-driven
+           reads every 1 ms / 5 ms (batch limit 256): syscalls, CPU, latency.
   load     10 kHz, per-record consumer work 0 / 100 / 250 us on 2 workers,
            queue policy drop vs block: where records are lost and latency.
   cpuacct  interval 100 us vs 137 us: rusage vs /proc/stat CPU accounting
@@ -33,8 +34,12 @@ def experiments(duration):
     exps = {"rate": [], "batch": [], "load": [], "cpuacct": []}
     for iv in (1000, 200, 100, 50, 20, 10):
         exps["rate"].append((f"iv{iv}", ["-t", d, "-i", str(iv), "-b", "64", "-w", "2"]))
-    for b in (1, 64):
-        exps["batch"].append((f"b{b}", ["-t", d, "-i", "50", "-b", str(b), "-w", "2"]))
+    # Readiness-driven reads (batch limit 1 vs 64) vs timer-driven reads that
+    # let samples accumulate (1 ms and 5 ms periods, batch limit 256).
+    for name, extra in (("ready_b1", ["-b", "1"]), ("ready_b64", ["-b", "64"]),
+                        ("period1ms_b256", ["-b", "256", "-r", "1000"]),
+                        ("period5ms_b256", ["-b", "256", "-r", "5000"])):
+        exps["batch"].append((name, ["-t", d, "-i", "50", "-w", "2"] + extra))
     for work in (0, 100000, 250000):
         for pol in ("drop", "block"):
             exps["load"].append((f"w{work // 1000}us_{pol}",

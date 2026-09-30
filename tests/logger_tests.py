@@ -158,6 +158,13 @@ def t_seed_change_during_run():
     check(d["config_gens_seen"] >= 3, f"only {d['config_gens_seen']} generations seen")
 
 
+def t_periodic_reads_batch():
+    # Timer-driven reads every 2 ms at 10 kHz must batch ~20 samples per read.
+    rc, d, err = run(["-t", "2", "-i", "100", "-b", "256", "-r", "2000"])
+    assert_ok(rc, d, err)
+    check(d["received"] / d["reads"] > 5, f"{d['received'] / d['reads']:.1f} records/read")
+
+
 def t_csv_output():
     fd, csv = tempfile.mkstemp(suffix=".csv")
     os.close(fd)
@@ -194,7 +201,7 @@ def t_asan_ubsan_logger():
 TESTS = [t_verify_default, t_slow_workers_drop_policy, t_slow_workers_block_policy,
          t_sigint_full_queue_discard, t_sigint_drain_then_second_signal,
          t_sigterm_drain_completes, t_duration_expiry_full_queue,
-         t_seed_change_during_run, t_csv_output, t_tsan_logger, t_asan_ubsan_logger]
+         t_seed_change_during_run, t_periodic_reads_batch, t_csv_output, t_tsan_logger, t_asan_ubsan_logger]
 
 
 def main():

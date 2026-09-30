@@ -24,6 +24,7 @@ def flat(d):
         "label": d["label"],
         "interval_us": d["config"]["interval_us"],
         "batch": d["config"]["batch"],
+        "read_period_us": d["config"].get("read_period_us", 0),
         "work_us": d["config"]["work_ns"] / 1000,
         "policy": d["config"]["policy"],
         "stream_s": s,
@@ -90,7 +91,7 @@ def order(cfgs, exp):
     if exp == "rate":
         return sorted(cfgs, key=lambda c: -int(c[2:]))
     if exp == "batch":
-        return sorted(cfgs, key=lambda c: int(c[1:]))
+        return sorted(cfgs, key=lambda c: (c.startswith("period"), len(c), c))
     if exp == "load":
         return sorted(cfgs, key=lambda c: (int(re.match(r"w(\d+)", c).group(1)), c))
     return sorted(cfgs)
@@ -131,15 +132,17 @@ def main():
                       "latency p99 us", "logger CPU % (1 CPU)", "producer CPU %"], lines), ""]
 
     if "batch" in runs:
-        md += ["## Read batch size at 20 kHz (2 workers, no consumer work)", ""]
+        md += ["## Read strategy at 20 kHz (2 workers, no consumer work)", ""]
         lines = []
         for c in order(runs["batch"], "batch"):
             rs = runs["batch"][c]
-            lines.append([f"{med(rs, 'batch'):.0f}", rng(rs, "reads_per_s"),
+            period = med(rs, "read_period_us")
+            lines.append(["readiness (epoll)" if not period else f"timer, {period / 1000:.0f} ms",
+                          f"{med(rs, 'batch'):.0f}", rng(rs, "reads_per_s"),
                           rng(rs, "records_per_read", "{:.2f}"), rng(rs, "proc_cpu_pct", "{:.1f}"),
                           rng(rs, "read_p50_us", "{:.1f}"), rng(rs, "read_p99_us", "{:.1f}"),
                           rng(rs, "worker_p99_us", "{:.1f}"), f"{med(rs, 'driver_dropped'):.0f}"])
-        md += [table(["max records/read", "read() calls/s", "records/read", "logger CPU %",
+        md += [table(["wakeup", "max records/read", "read() calls/s", "records/read", "logger CPU %",
                       "latency p50 us", "latency p99 us", "worker latency p99 us", "driver drops"],
                      lines), ""]
 

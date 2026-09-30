@@ -61,6 +61,7 @@ struct opts {
 	unsigned int queue;	/* batches in the app queue */
 	unsigned int workers;
 	unsigned int work_ns;	/* busy work per record */
+	unsigned int read_period_us;	/* 0 = read on readiness; else on a timer */
 	enum policy policy;
 	enum on_stop on_stop;
 	bool verify;		/* --mode=verify: strict exit status */
@@ -291,16 +292,31 @@ static void *reader_main(void *arg)
 	struct epoll_event ev, evs[2];
 	struct batch *b;
 	ssize_t r;
-	int ep, i, n;
+	int ep, i, n, wake_fd = a->devfd;
 	bool eof = false;
 
 	ep = epoll_create1(EPOLL_CLOEXEC);
 	if (ep < 0)
 		die("epoll_create1");
+	/*
+	 * Readiness mode wakes on every sample. Periodic mode wakes on a timer
+	 * and drains whatever accumulated, trading latency for fewer wakeups
+	 * and read() calls.
+	 */
+	if (a->o.read_period_us) {
+		struct itimerspec its = { 0 };
+
+		its.it_interval.tv_sec = a->o.read_period_us / 1000000;
+		its.it_interval.tv_nsec = (long)(a->o.read_period_us % 1000000) * 1000;
+		its.it_value = its.it_interval;
+		wake_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+		if (wake_fd < 0 || timerfd_settime(wake_fd, 0, &its, NULL))
+			die("reader timerfd");
+	}
 	ev.events = EPOLLIN;
-	ev.data.fd = a->devfd;
-	if (epoll_ctl(ep, EPOLL_CTL_ADD, a->devfd, &ev))
-		die("epoll_ctl dev");
+	ev.data.fd = wake_fd;
+	if (epoll_ctl(ep, EPOLL_CTL_ADD, wake_fd, &ev))
+		die("epoll_ctl wake");
 	ev.data.fd = a->stop_efd;
 	if (epoll_ctl(ep, EPOLL_CTL_ADD, a->stop_efd, &ev))
 		die("epoll_ctl stop");
@@ -316,6 +332,12 @@ static void *reader_main(void *arg)
 		for (i = 0; i < n; i++)
 			if (evs[i].data.fd == a->stop_efd)
 				goto shutdown;
+		if (wake_fd != a->devfd) {
+			uint64_t ticks;
+
+			if (read(wake_fd, &ticks, sizeof(ticks)) < 0 && errno != EAGAIN)
+				die("reader timerfd read");
+		}
 		/* Device readable: read until EAGAIN, re-checking stop each time. */
 		while (!atomic_load(&a->stop)) {
 			r = read(a->devfd, b->recs, a->o.batch * RS);
@@ -374,6 +396,8 @@ shutdown:
 		}
 	}
 	bq_close(&a->q);
+	if (wake_fd != a->devfd)
+		close(wake_fd);
 	close(ep);
 	notify(a->done_efd);
 	return NULL;
@@ -478,6 +502,7 @@ static void usage(void)
 "  -q, --queue N            app queue capacity in batches (default 64)\n"
 "  -w, --workers N          worker threads (default 2)\n"
 "  -l, --work-ns N          busy work per record in ns (default 0)\n"
+"  -r, --read-period-us N   read on a timer every N us instead of on readiness\n"
 "  -p, --policy drop|block  app queue full: drop batch or block reader (default drop)\n"
 "  -s, --on-stop drain|discard  pending data at shutdown (default drain)\n"
 "  -m, --mode verify|bench  verify: nonzero exit on any check failure (default)\n"
@@ -513,6 +538,7 @@ static void parse_opts(struct opts *o, int argc, char **argv)
 		{ "queue", required_argument, 0, 'q' },
 		{ "workers", required_argument, 0, 'w' },
 		{ "work-ns", required_argument, 0, 'l' },
+		{ "read-period-us", required_argument, 0, 'r' },
 		{ "policy", required_argument, 0, 'p' },
 		{ "on-stop", required_argument, 0, 's' },
 		{ "mode", required_argument, 0, 'm' },
@@ -532,7 +558,7 @@ static void parse_opts(struct opts *o, int argc, char **argv)
 		.workers = 2, .policy = POLICY_DROP, .on_stop = ON_STOP_DRAIN,
 		.verify = true, .set_interval_us = -1, .set_seed = -1, .label = "",
 	};
-	while ((c = getopt_long(argc, argv, "d:t:b:q:w:l:p:s:m:i:S:o:j:L:h", lo, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "d:t:b:q:w:l:r:p:s:m:i:S:o:j:L:h", lo, NULL)) != -1) {
 		switch (c) {
 		case 'd': o->device = optarg; break;
 		case 't':
@@ -544,6 +570,7 @@ static void parse_opts(struct opts *o, int argc, char **argv)
 		case 'q': o->queue = parse_ul(optarg, 1, 65536); break;
 		case 'w': o->workers = parse_ul(optarg, 1, 64); break;
 		case 'l': o->work_ns = parse_ul(optarg, 0, 100000000); break;
+		case 'r': o->read_period_us = parse_ul(optarg, 0, 1000000); break;
 		case 'p':
 			if (!strcmp(optarg, "drop")) o->policy = POLICY_DROP;
 			else if (!strcmp(optarg, "block")) o->policy = POLICY_BLOCK;
@@ -821,10 +848,10 @@ int main(int argc, char **argv)
 		sysconf(_SC_NPROCESSORS_ONLN));
 	fprintf(jf, "  \"config\": {\"interval_us\": %u, \"seed\": %u, \"config_gen\": %u, "
 		    "\"capacity\": %u, \"batch\": %u, \"queue\": %u, \"workers\": %u, "
-		    "\"work_ns\": %u, \"policy\": \"%s\", \"on_stop\": \"%s\", "
+		    "\"work_ns\": %u, \"read_period_us\": %u, \"policy\": \"%s\", \"on_stop\": \"%s\", "
 		    "\"duration_s\": %.3f, \"mode\": \"%s\"},\n",
 		a->cfg.interval_us, a->cfg.seed, a->cfg.config_gen, a->st_start.capacity,
-		a->o.batch, a->o.queue, a->o.workers, a->o.work_ns,
+		a->o.batch, a->o.queue, a->o.workers, a->o.work_ns, a->o.read_period_us,
 		a->o.policy == POLICY_DROP ? "drop" : "block",
 		a->o.on_stop == ON_STOP_DRAIN ? "drain" : "discard", a->o.duration_s,
 		a->o.verify ? "verify" : "bench");
