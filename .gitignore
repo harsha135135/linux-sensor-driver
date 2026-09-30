@@ -1,0 +1,11 @@
+build/
+kernel/*.o
+kernel/*.ko
+kernel/*.mod
+kernel/*.mod.c
+kernel/.*.cmd
+kernel/Module.symvers
+kernel/modules.order
+kernel/.tmp_versions/
+__pycache__/
+results/tmp/

@@ -1,0 +1,2 @@
+obj-m := vsensor.o
+ccflags-y := -Wall
